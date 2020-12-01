@@ -1341,6 +1341,13 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
         l_1_array = []
         l_2_array = []
         l_3_array = []
+        compound_array = compound_cs_list
+
+        #Extending compound array to make array 180 elements long to avoid seg faults
+        compound_array.append(compound_array[-1])
+        compound_array.append(compound_array[-1])
+        compound_array.append(compound_array[-1])
+        compound_array.append(compound_array[-1])
         total_array = []
         #Reading in l=1 array
         with open("mg26dp_dwba_5.716_3-_1.dat") as l_1_file:
@@ -1382,10 +1389,11 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
             print(len(temp_fresco_cross_section_list[2]))
 
             #Making fitting to fit l=1, l=2, l=3 (no compound contribution)
-            C2S_L1_start, C2S_L1_end = 0.0005, 0.015
+            C2S_L1_start, C2S_L1_end = 0.004, 0.018
             C2S_L2_start, C2S_L2_end = 0.03, 0.1
-            C2S_L3_start, C2S_L3_end = 0.08, 0.3
-            no_C2S = 30
+            C2S_L3_start, C2S_L3_end = 0.08, 0.35
+            compound_scale_start, compound_scale_end = 0.15, 0.5
+            no_C2S = 20
 
             best_reduced_chi_squared = 1e9
 
@@ -1393,56 +1401,72 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
             l_1_plotting_array = []
             l_2_plotting_array = []
             l_3_plotting_array = []
+            compound_plotting_array = []
             chi_squared_plotting_array = []
+
+            for word in ('testing', 'for', 'loop'):
+                print(word)
+            print(compound_array)
+            print(compound_array[0])
+            print(len(compound_array))
+            print(len(l_1_array))
 
 
             for C2S_L1 in np.arange(C2S_L1_start, C2S_L1_end, (C2S_L1_end - C2S_L1_start)/no_C2S):
                 for C2S_L2 in np.arange(C2S_L2_start, C2S_L2_end, (C2S_L2_end - C2S_L2_start)/no_C2S):
                     for C2S_L3 in np.arange(C2S_L3_start, C2S_L3_end, (C2S_L3_end - C2S_L3_start)/no_C2S):
-                        # print(C2S_L1, C2S_L2, C2S_L3)
-                        #Calculate total array based on current spec factors
-                        # print("Lengths:")
-                        # print(len(l_1_array))
-                        # print(len(l_2_array))
-                        # print(len(l_3_array))
-                        # print(len(total_array))
-                        # print(l_2_array[0])
-                        l_1_plotting_array.append(C2S_L1)
-                        l_2_plotting_array.append(C2S_L2)
-                        l_3_plotting_array.append(C2S_L3)
+                        for compound_scale in np.arange(compound_scale_start, compound_scale_end, (compound_scale_end - compound_scale_start) / no_C2S):
+
+                            # print(C2S_L1, C2S_L2, C2S_L3, compound_scale)
+                            #Calculate total array based on current spec factors
+                            # print("Lengths:")
+                            # print(len(l_1_array))
+                            # print(len(l_2_array))
+                            # print(len(l_3_array))
+                            # print(len(total_array))
+                            # print(l_2_array[0])
+                            l_1_plotting_array.append(C2S_L1)
+                            l_2_plotting_array.append(C2S_L2)
+                            l_3_plotting_array.append(C2S_L3)
+                            compound_plotting_array.append(compound_scale)
+
+                            for angle_counter, value in enumerate(l_1_array):
+                                # print("Angle counter: {}".format(angle_counter))
+                                total_array.append(\
+                                C2S_L1 * l_1_array[angle_counter] +\
+                                C2S_L2 * l_2_array[angle_counter] +\
+                                C2S_L3 * l_3_array[angle_counter] +\
+                                compound_scale * compound_array[angle_counter])
+                                # print(total_array[angle_counter])
+
+                            #Calculate chi squared again
+                            chi_square = reduced_chi_square = 0
+                            for i in range(0,len(targets_com_angles_list)):
+                                if(E_x == '5.716' and i == 3 or i== 5):
+                                    # print("\n\n\nSKIPPING\n\n\n")
+                                    continue
+                                chi_square = chi_square + pow((targets_cs_list[i]-total_array[int(round(targets_com_angles_list[i]))]),2)/(targets_cs_uncertainty_list[i]*targets_cs_uncertainty_list[i])
+                                # print(round(targets_com_angles_list[i]), targets_cs_list[i], total_array[int(round(targets_com_angles_list[i]))], targets_cs_uncertainty_list[i], chi_square)
+                                # print(round(targets_com_angles_list[i]), chi_square, targets_cs_list[i], total_array[int(round(targets_com_angles_list[i]))], targets_cs_uncertainty_list[i])
 
 
-                        for angle_counter, value in enumerate(l_1_array):
-                            # print("Angle counter: {}".format(angle_counter))
-                            total_array.append(\
-                            C2S_L1 * l_1_array[angle_counter] +\
-                            C2S_L2 * l_2_array[angle_counter] +\
-                            C2S_L3 * l_3_array[angle_counter])
-                            # print(total_array[angle_counter])
+                            NDF = len(targets_com_angles_list) - 2.0
+                            reduced_chi_square = chi_square / NDF
+                            # print(NDF)
+                            chi_square_sd = math.sqrt(2.0*NDF)
+                            reduced_chi_square_sd = math.sqrt(2.0/NDF)
+                            # print("chi square is {} with sd {}, reduced chi square is {} with sd {}".format(chi_square, chi_square_sd, reduced_chi_square, reduced_chi_square_sd))
+                            chi_squared_plotting_array.append(reduced_chi_square)
+                            if(reduced_chi_square < best_reduced_chi_squared):
+                                print("New best reduced chi-squared found: {}\nC2S(l=1): {}\nC2S(l=2): {}\nC2S(l=3): {}\nCompound scale: {}\n".format(reduced_chi_square, C2S_L1, C2S_L2, C2S_L3, compound_scale))
+                                best_reduced_chi_squared, best_reduced_chi_square_sd, best_C2S_L1, best_C2S_L2, best_C2S_L3, best_compound_scale = reduced_chi_square, reduced_chi_square_sd, C2S_L1, C2S_L2, C2S_L3, compound_scale
+                            del total_array[:]
 
-                        #Calculate chi squared again
-                        chi_square = reduced_chi_square = 0
-                        for i in range(0,len(targets_com_angles_list)):
-                            if(E_x == '5.716' and i == 3 or i== 5):
-                                # print("\n\n\nSKIPPING\n\n\n")
-                                continue
-                            chi_square = chi_square + pow((targets_cs_list[i]-total_array[int(round(targets_com_angles_list[i]))]),2)/(targets_cs_uncertainty_list[i]*targets_cs_uncertainty_list[i])
-                            # print(round(targets_com_angles_list[i]), targets_cs_list[i], total_array[int(round(targets_com_angles_list[i]))], targets_cs_uncertainty_list[i], chi_square)
-                            # print(round(targets_com_angles_list[i]), chi_square, targets_cs_list[i], total_array[int(round(targets_com_angles_list[i]))], targets_cs_uncertainty_list[i])
+            print("C2S are being scaled by 3/7 to account for using a 3- state in DWBA calculation, instead of 1-")
+            print("Best reduced chi-squared of {} with sd {} found at:\nC2S(l=1): {}\nC2S(l=2): {}\nC2S(l=3): {}\n Compound scale: {}\n".format(best_reduced_chi_squared, best_reduced_chi_square_sd, (7.0 /3.0) * best_C2S_L1, best_C2S_L2, (7.0 /3.0) * best_C2S_L3, best_compound_scale))
 
-
-                        NDF = len(targets_com_angles_list) - 2.0
-                        reduced_chi_square = chi_square / NDF
-                        # print(NDF)
-                        chi_square_sd = math.sqrt(2.0*NDF)
-                        reduced_chi_square_sd = math.sqrt(2.0/NDF)
-                        # print("chi square is {} with sd {}, reduced chi square is {} with sd {}".format(chi_square, chi_square_sd, reduced_chi_square, reduced_chi_square_sd))
-                        chi_squared_plotting_array.append(reduced_chi_square)
-                        if(reduced_chi_square < best_reduced_chi_squared):
-                            print("New best reduced chi-squared found: {}\nC2S(l=1): {}\nC2S(l=2): {}\nC2S(l=3): {}\n".format(reduced_chi_square, C2S_L1, C2S_L2, C2S_L3))
-                            best_reduced_chi_squared, best_reduced_chi_square_sd, best_C2S_L1, best_C2S_L2, best_C2S_L3 = reduced_chi_square, reduced_chi_square_sd, C2S_L1, C2S_L2, C2S_L3
-                        del total_array[:]
-            print("Best reduced chi-squared of {} with sd {} found at:\nC2S(l=1): {}\nC2S(l=2): {}\nC2S(l=3): {}\n".format(best_reduced_chi_squared, best_reduced_chi_square_sd, best_C2S_L1, best_C2S_L2, best_C2S_L3))
+            print("Test printing out compound cross section list:")
+            print(compound_array)
 
             print("Making total array to plot:")
             for angle_counter, value in enumerate(l_1_array):
@@ -1450,7 +1474,8 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
                 total_array.append(\
                 best_C2S_L1 * l_1_array[angle_counter] +\
                 best_C2S_L2 * l_2_array[angle_counter] +\
-                best_C2S_L3 * l_3_array[angle_counter])
+                best_C2S_L3 * l_3_array[angle_counter] +\
+                best_compound_scale * compound_array[angle_counter])
             chi_square = 0
             for i in range(0,len(targets_com_angles_list)):
                 if(E_x == '5.716' and i == 3 or i== 5):
@@ -1466,6 +1491,7 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
             plt.plot(best_C2S_L1 * np.array(l_1_array))
             plt.plot(best_C2S_L2 * np.array(l_2_array))
             plt.plot(best_C2S_L3 * np.array(l_3_array))
+            plt.plot(best_compound_scale * np.array(compound_array))
             plt.plot(total_array)
             plt.errorbar(target_4_com_angles_list, target_4_cs_list, target_4_cs_uncert_list,label="Target 4",\
             color='firebrick',barsabove=True, marker='.', ms=7, linestyle='None', elinewidth=1, capthick=1,\
@@ -1738,12 +1764,13 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
     E_x = float(E_x)*1000.0
     E_x = int(E_x)
     E_x = str(E_x)
-    file_string = "results_plots/" + E_x + "_keV_" + J_pi + "_state.pdf"
+    file_string = "results_plts/" + E_x + "_keV_" + J_pi + "state.pdf"
+    # file_string = "results_plots/" + E_x + "_keV_" + J_pi + "_state.pdf"
 
     if(compound_boolean):
         file_string = "results_plots_show_compound/" + E_x + "_keV_" + J_pi + "_state.pdf"
     if(add_compound_boolean):
-		file_string = "results_plots_bcfec_compound/" + E_x + "_keV_" + J_pi + "_state_combined.pdf"
+        file_string = "results_plots_bcfec_compound/" + E_x + "_keV_" + J_pi + "_state_combined.pdf"
     if(combined_fit):
         file_string = "results_plots/" + E_x + "_keV_" + J_pi + "_state_combined.pdf"
     if (save_fig):

@@ -7,6 +7,74 @@ from mpl_toolkits.mplot3d import Axes3D
 matplotlib.rcParams.update({'errorbar.capsize': 2}) #Copied from  https://stackoverflow.com/questions/18434492/matplotlib-errorbar-caps-missing to fix error bar caps not appearing
 
 
+def plot_energy_diff(energy_diff_angle_array, energy_diff_com_angle_array, energy_diff_array, energy_diff_uncert_array):
+    print("Plotting energy diff ")
+    print("Trimming arrays")
+    energy_diff_angle_array = energy_diff_angle_array[3:-2]
+    energy_diff_com_angle_array = energy_diff_com_angle_array[3:-2]
+    energy_diff_array = energy_diff_array[3:-2]
+    energy_diff_uncert_array = energy_diff_uncert_array[3:-2]
+
+
+    plt.errorbar(energy_diff_com_angle_array, energy_diff_array, energy_diff_uncert_array, \
+    color='firebrick', barsabove=True, marker='.', ms=7, linestyle='None', elinewidth=1, capthick=1,\
+    markeredgewidth=2)
+    plt.ylabel(r'$\mathrm{\Delta}$E [keV]', fontsize=15,rotation=90, labelpad=-2)
+    plt.xlabel(r'$\mathrm{\theta_{CoM}[^{\circ}]}$', fontsize=15, labelpad=-2)
+    plt.xlim(0,60)
+
+    plt.gca().set_xticks(np.arange(0, 60, 10))
+
+    # plt.xticks([])
+    plt.xlabel(r'$\mathrm{\theta_{CoM}[^{\circ}]}$', fontsize=15, labelpad=-2)
+    # fig.subplots_adjust(wspace=None, hspace=None)
+    # plt.tight_layout()
+    # plt.show()
+    return
+
+def draw_arrows():
+
+
+    #Above plot
+    # l_1_peak, l_2_peak, l_3_peak = 16, 30, 45
+    # arrow_base_y = 27.2
+    # arrow_height = -0.7
+    # head_width = -arrow_height*1.5
+    # head_length = head_width * 0.5
+
+    #Below plot
+    l_1_peak, l_2_peak, l_3_peak = 16, 30, 45
+    arrow_base_y = 19.2
+    arrow_height = 0.4
+    head_width = arrow_height*1.5
+    head_length = head_width * 0.5
+
+    #l=1 arrow
+    plt.arrow(l_1_peak, arrow_base_y, 0, arrow_height, clip_on = False, shape='full',\
+    head_width = head_width, head_length = head_length)
+    #l=1 label
+    plt.text(l_1_peak, arrow_base_y + 0.2, r'$\ell=1$ peak', ha = 'center', wrap=True)
+
+    #l=2 arrow
+    plt.arrow(l_2_peak, arrow_base_y, 0, arrow_height, clip_on = False, shape='full',\
+    head_width = head_width, head_length = head_length)
+    #l=2 label
+    plt.text(l_2_peak, arrow_base_y + 0.2, r'$\ell=2$ peak', ha = 'center')
+
+
+
+    #l=3 arrow
+    plt.arrow(l_3_peak, arrow_base_y, 0, arrow_height, clip_on = False, shape='full',\
+    head_width = head_width, head_length = head_length)
+    #l=3 label
+    plt.text(l_3_peak, arrow_base_y + 0.2, r'$\ell=3$ peak', ha = 'center')
+
+
+    return
+
+
+
+
 def main():
 
     #Opening input file
@@ -1558,11 +1626,44 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
             plt.show()
 
 
+            #Need to read in energy difference as a function of angle
+            with open("5700keV_energy_diff_per_angle.txt") as energy_diff_file:
+                energy_diff_angle_array = []
+                energy_diff_array = []
+                energy_diff_uncert_array = []
+
+                for line in energy_diff_file:
+                    energy_diff_angle, energy_diff, energy_diff_uncert = line.rstrip().split("\t")
+                    print(line.rstrip().split("\t"))
+                    energy_diff_angle_array.append(float(energy_diff_angle))
+                    energy_diff_array.append(float(energy_diff))
+                    energy_diff_uncert_array.append(float(energy_diff_uncert))
+            print(energy_diff_angle_array)
+            print(energy_diff_array)
+            print(energy_diff_uncert_array)
 
 
+            energy_diff_com_angle_array = [com_angles_list[int(angle)-1]  for angle in energy_diff_angle_array]
+            plot_energy_diff(energy_diff_angle_array, energy_diff_com_angle_array, energy_diff_array, energy_diff_uncert_array)
 
+            draw_arrows()
+
+            # add_image(fig)
+            plt.show()
+            # print(com_angles_list)
+            # print(energy_diff_angle_array)
+            # print(com_angles_list[int(energy_diff_angle_array[0])-1])
+            # print(energy_diff_com_angle_array)
+
+            file_string = "5.7MeV_energy_seperation_no_inset.png"
+
+            plt.savefig(file_string,bbox_inches = 'tight',pad_inches = 0)
 
             return
+
+
+
+
 
 
             return

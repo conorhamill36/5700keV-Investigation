@@ -1506,6 +1506,9 @@ def plot_single_state(E_x,J_pi,L_zero,L_one,L_two,L_three,S_0,S_1,S_2,S_3,counte
             ax.tick_params(axis='x',direction = 'in')
             plt.xticks(fontsize=16)
             plt.xlim(0, 60)
+            plt.ylim(0.02, 0.5)
+            plt.xlabel(r'$\mathrm{\theta_{CoM}}$', fontsize=15)
+            plt.ylabel(r'$\mathrm{d\sigma/d\Omega}$ (mb/sr)', fontsize=15,rotation=90, labelpad=-2)
             plt.show()
 
 

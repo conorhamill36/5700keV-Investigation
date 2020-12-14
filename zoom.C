@@ -21,7 +21,7 @@ void zoom(){
   else{
     gROOT->SetBatch(kFALSE);
   }
-
+  gStyle->SetOptStat(0);
 
   cout <<" Hello" << endl;
 
@@ -58,12 +58,12 @@ void zoom(){
   ofstream exc_calib_output_file;
   exc_calib_output_file.open("exc_calib_output.txt");
 
-  double doublet_large_peak_centroid, doublet_large_peak_height, doublet_large_peak_width;
-  double doublet_small_peak_centroid, doublet_small_peak_height, doublet_small_peak_width;
+  double doublet_large_peak_centroid, doublet_large_peak_height, doublet_large_peak_width, doublet_large_peak_counts;
+  double doublet_small_peak_centroid, doublet_small_peak_height, doublet_small_peak_width, doublet_small_peak_counts;
 
   cout << "Conor 1" << endl;
   //Run loop begins
-  for(run_no=0; run_no < 105; run_no++){
+  for(run_no = 0; run_no < total_runs; run_no++){
     //peaklocationfile.open("4+_4.901_peaklocations.txt");
     peaklocationfile.open("5.7_total_peaklocations.txt");
     // peaklocationfile.open("3+_6.125_peaklocations.txt");
@@ -78,7 +78,7 @@ void zoom(){
 
     file_flag=0;
     //Getting details from input file
-    for (i = 0; i < total_runs; i++){
+    for (i = 0; i < total_runs ; i++){
       // printf("loop number %d\n",i);
 
       getline(peaklocationfile,s);
@@ -109,8 +109,8 @@ void zoom(){
         TLine *end_line = new TLine(end,0,end,1000);
         start_line->SetLineColor(kRed);
         end_line->SetLineColor(kRed);
-        start_line->Draw();
-        end_line->Draw();
+        // start_line->Draw();
+        // end_line->Draw();
 
         //Fitting single gaus to get initial centroid value
         double large_peak_centroid, large_peak_height, large_peak_width;
@@ -144,8 +144,8 @@ void zoom(){
           f1_double = new TF1("f1_double", double_gaus, start, end);
           f1_double->SetParameters(large_peak_height, large_peak_centroid, 8,
             0.2 * large_peak_height, large_peak_centroid + 20, 8);
-            f1_double->FixParameter(2, 6.5);
-            f1_double->FixParameter(5, 6.5);
+            f1_double->FixParameter(2, 6.0);
+            f1_double->FixParameter(5, 6.0);
 
             printf("%lf %lf %lf\n", large_peak_height, large_peak_centroid, large_peak_width);
             double *double_params = f1_double->GetParameters();
@@ -155,7 +155,7 @@ void zoom(){
             }
             h1->Fit("f1_double", "BR", "", start, end);
 
-            TPaveText *pt_double = new TPaveText(start + 100, f1_double->GetParameter(0)*0.5, end + 100, f1_double->GetParameter(0));
+
 
             centroid_diff = f1_double->GetParameter(4) - f1_double->GetParameter(1);
             centroid_diff_uncert = sqrt(f1_double->GetParError(4) * f1_double->GetParError(4) + f1_double->GetParError(1) * f1_double->GetParError(1));
@@ -169,7 +169,23 @@ void zoom(){
             doublet_small_peak_centroid = f1_double->GetParameter(4);
             doublet_small_peak_width = f1_double->GetParameter(5);
 
+            h1->GetXaxis()->SetRangeUser(doublet_large_peak_centroid - 50, doublet_small_peak_centroid + 20);
 
+
+            //Drawing on centroid lines
+            TLine *doublet_large_centroid_line = new TLine(doublet_large_peak_centroid, 0, doublet_large_peak_centroid, 1000);
+            TLine *doublet_small_centroid_line = new TLine(doublet_small_peak_centroid, 0, doublet_small_peak_centroid, 1000);
+            doublet_large_centroid_line->SetLineStyle(10); doublet_small_centroid_line->SetLineStyle(10);
+            doublet_large_centroid_line->Draw(); doublet_small_centroid_line->Draw();
+
+
+
+
+            //For larger view of spectrum
+            // TPaveText *pt_double = new TPaveText(start + 100, f1_double->GetParameter(0) * 0.5, end + 100, f1_double->GetParameter(0));
+
+            //For zooming in on doublet
+            TPaveText *pt_double = new TPaveText(doublet_large_peak_centroid - 45, f1_double->GetParameter(0) * 0.4, doublet_large_peak_centroid - 20, f1_double->GetParameter(0) * 0.7);
 
             pt_double->AddText(corresp_angle_char);
 
@@ -252,6 +268,18 @@ void zoom(){
           centroid_diff_energy = centroid_diff * -channel_to_ex_fit_parameter_b;
           // centroid_diff_energy_uncert = centroid_diff * channel_to_ex_fit_parameter_b_uncert;
 
+          //Realtive uncertainty in energy difference is relative uncertainty in channel difference and calibration parameter added in quadrature
+          centroid_diff_uncert = 9.19;
+
+
+
+
+          doublet_large_peak_counts = doublet_large_peak_height * doublet_large_peak_width * sqrt(2.0 * 3.141459);
+          doublet_small_peak_counts = doublet_small_peak_height * doublet_small_peak_width * sqrt(2.0 * 3.141459);
+          printf("%lf\t%lf\n", doublet_small_peak_counts, doublet_large_peak_counts);
+          centroid_diff_uncert = sqrt((5.2 / doublet_large_peak_counts) * (5.2 / doublet_large_peak_counts) + (5.2 / doublet_small_peak_counts) * (5.2 / doublet_small_peak_counts));
+
+
           centroid_diff_energy_uncert = centroid_diff_energy * sqrt( (channel_to_ex_fit_parameter_b_uncert/channel_to_ex_fit_parameter_b) * (channel_to_ex_fit_parameter_b_uncert/channel_to_ex_fit_parameter_b) + (centroid_diff_uncert/centroid_diff) * (centroid_diff_uncert/centroid_diff) );
 
 
@@ -285,6 +313,50 @@ void zoom(){
   // }
   outputfile.close();
   exc_calib_output_file.close();
+
+  //Understanding uncertainties in centroid differences
+  printf("Understanding uncertainties in centroid differences\n");
+  h1 = (TH1F*)f->Get("run21");
+  h1->Draw();
+
+  double start_values_array[6] = {2040, 2045, 2050, 2055, 2060, 2065};
+  double end_values_array[6] =   {2100, 2102, 2104, 2106, 2108, 2110};
+  double centroid_diff;
+  std::vector<double> centroid_diffs;
+
+  for(int i = 0; i < 6; i++){
+    for(int j = 0; j < 6; j++){
+      printf("%i\t%i\n", i, j);
+      printf("%lf\t%lf\n", start_values_array[i], end_values_array[j]);
+      TF1 *f_double_gaus = new TF1("f_double_gaus", "gaus(0)+gaus(3)", start_values_array[i], end_values_array[j]);
+      f_double_gaus->SetParameters(200, 2070, 8, 0.2 * 200, 2070 + 20, 8);
+      f_double_gaus->FixParameter(2, 5.5);
+      f_double_gaus->FixParameter(5, 5.5);
+      h1->Fit("f_double_gaus", "BR", "", start_values_array[i], end_values_array[j]);
+      centroid_diff = f_double_gaus->GetParameter(4) - f_double_gaus->GetParameter(1);
+      printf("%lf\n", centroid_diff);
+      centroid_diffs.push_back(centroid_diff);
+
+    }
+  }
+
+  TF1 *f_double_gaus = new TF1("f_double_gaus", "gaus(0)+gaus(3)", 2020, 2110);
+  f_double_gaus->SetParameters(200, 2070, 8, 0.2 * 200, 2070 + 20, 8);
+  f_double_gaus->FixParameter(2, 5.2);
+  f_double_gaus->FixParameter(5, 5.2);
+  h1->Fit("f_double_gaus", "BR", "", 2020, 2110);
+  centroid_diff = f_double_gaus->GetParameter(4) - f_double_gaus->GetParameter(1);
+  cout << centroid_diff << endl;
+
+
+  for(int i = 0; i < centroid_diffs.size(); i++){
+    printf("%i\t%lf\n", i, centroid_diffs[i]);
+  }
+
+  double max = *max_element(centroid_diffs.begin(), centroid_diffs.end());
+  double min = *min_element(centroid_diffs.begin(), centroid_diffs.end());
+  printf("Min:%lf Max:%lf\n", min, max);
+
   return;
 
   int plotting_points_no;

@@ -30,6 +30,8 @@ void zoom(){
   double xbin, ybin, xmin, xmax, ymin, ymax, include_value;
   xbin=4096; ybin=100; xmin=0; xmax=4095; ymin=0; ymax=0;
 
+  double run_15_small_centroid, run_26_small_centroid, run_96_small_centroid, run_15_large_centroid, run_26_large_centroid, run_96_large_centroid;
+
   int start, end, run_file_counter, corresp_angle, file_flag, i;
   int run_no=0;
   int total_runs=107;
@@ -63,7 +65,7 @@ void zoom(){
 
   cout << "Conor 1" << endl;
   //Run loop begins
-  for(run_no = 0; run_no < total_runs; run_no++){
+  for(run_no = 0; run_no < 97; run_no++){
     //peaklocationfile.open("4+_4.901_peaklocations.txt");
     peaklocationfile.open("5.7_total_peaklocations.txt");
     // peaklocationfile.open("3+_6.125_peaklocations.txt");
@@ -101,10 +103,16 @@ void zoom(){
       //   file_flag=1;
       if(include_value==1){
         TCanvas *c1 = new TCanvas();
-        h1->Rebin();
+        // h1->Rebin();
         // h1->Rebin();
         h1->GetXaxis()->SetRangeUser((start-150),(end+150));
         h1->Draw();
+        if (run_no == 15){h1->SetLineColor(2);}
+        if (run_no == 26){h1->SetLineColor(3);}
+        if (run_no == 96){h1->SetLineColor(4);}
+        // h1->SetLineColor(3);
+        // h1->SetLineColor(4);
+
         TLine *start_line = new TLine(start,0,start,1000);
         TLine *end_line = new TLine(end,0,end,1000);
         start_line->SetLineColor(kRed);
@@ -153,7 +161,8 @@ void zoom(){
             for (int j = 0; j < 6; j++){
               cout << double_params[j] << endl;
             }
-            h1->Fit("f1_double", "BR", "", start, end);
+            h1->Fit("f1_double", "BR0", "", start, end);
+
 
 
 
@@ -170,6 +179,13 @@ void zoom(){
             doublet_small_peak_width = f1_double->GetParameter(5);
 
             h1->GetXaxis()->SetRangeUser(doublet_large_peak_centroid - 50, doublet_small_peak_centroid + 20);
+
+
+
+            if(run_no == 15){run_15_small_centroid = doublet_small_peak_centroid; run_15_large_centroid = doublet_large_peak_centroid;}
+            if(run_no == 26){run_26_small_centroid = doublet_small_peak_centroid; run_26_large_centroid = doublet_large_peak_centroid;}
+            if(run_no == 96){run_96_small_centroid = doublet_small_peak_centroid; run_96_large_centroid = doublet_large_peak_centroid;}
+
 
 
             //Drawing on centroid lines
@@ -204,7 +220,7 @@ void zoom(){
             pt_double->AddText(centroid_diff_char);
 
 
-            pt_double->Draw();
+            // pt_double->Draw();
 
 
 
@@ -313,6 +329,92 @@ void zoom(){
   // }
   outputfile.close();
   exc_calib_output_file.close();
+
+
+  //Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak
+  printf("Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak");
+
+
+  printf("Small centroids:\n%lf\t%lf\t%lf\n", run_15_small_centroid, run_26_small_centroid, run_96_small_centroid);
+  printf("Large centroids:\n%lf\t%lf\t%lf\n", run_15_large_centroid, run_26_large_centroid, run_96_large_centroid);
+
+  //Extracting histograms
+  printf("Extracting histograms\n");
+
+  TH1F *run15_hist = new TH1F("run15_hist","run15_hist title",xbin,xmin,xmax);
+  TH1F *run26_hist = new TH1F("run26_hist","run26_hist title",xbin,xmin,xmax);
+  TH1F *run96_hist = new TH1F("run96_hist","run96_hist title",xbin,xmin,xmax);
+  TH1F *run26_hist_shifted = new TH1F("run26_hist_shifted","run26_hist_shifted title",xbin,xmin,xmax);
+  TH1F *run96_hist_shifted = new TH1F("run96_hist_shifted","run96_hist_shifted title",xbin,xmin,xmax);
+
+  run15_hist = (TH1F*)f->Get("run15");
+  run26_hist = (TH1F*)f->Get("run26");
+  run96_hist = (TH1F*)f->Get("run96");
+
+  double run26_shift, run96_shift;
+
+  run26_shift = run_15_small_centroid - run_26_small_centroid;
+  run96_shift = run_15_small_centroid - run_96_small_centroid;
+
+  printf("run26 shift: %lf\n", run26_shift);
+  printf("run96 shift: %lf\n", run96_shift);
+
+  for(int i = 0; i < xbin; i++){
+    cout << run26_hist->GetBinContent(i) << endl;
+    run26_hist_shifted->SetBinContent(i, run26_hist->GetBinContent(i - run26_shift));
+  }
+
+  //Scaling to help match heights
+  double run96_scale;
+  run96_scale = 1.72;
+
+  for(int i = 0; i < xbin; i++){
+    cout << run96_hist->GetBinContent(i) << endl;
+    run96_hist_shifted->SetBinContent(i, run96_scale*run96_hist->GetBinContent(i - run96_shift));
+  }
+
+  //Adding colors
+  run15_hist->SetLineColor(2);
+  run26_hist->SetLineColor(1);
+  run96_hist->SetLineColor(3);
+  run26_hist_shifted->SetLineColor(1);
+  run96_hist_shifted->SetLineColor(3);
+
+  // run96_hist_shifted->Scale(1.72);
+
+  gROOT->SetBatch(kFALSE);
+
+  //New Canvas to draw on
+  // TCanvas *c1 = new TCanvas("c1","c1",800,1000);
+  TCanvas *c2 = new TCanvas("c2","c2",800,1000);
+  run15_hist->Draw();
+  run26_hist_shifted->Draw("SAME");
+  run96_hist_shifted->Draw("SAME");
+  run15_hist->GetXaxis()->SetRangeUser(2040, 2110);
+
+  //Drawing on centroid lines
+  TLine *run_15_large_centroid_line = new TLine(run_15_large_centroid,0,run_15_large_centroid,1000);
+  TLine *run_26_large_centroid_line = new TLine(run_26_large_centroid+run26_shift,0,run_26_large_centroid+run26_shift,1000);
+  TLine *run_96_large_centroid_line = new TLine(run_96_large_centroid+run96_shift,0,run_96_large_centroid+run96_shift,1000);
+  TLine *run_15_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
+  TLine *run_26_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
+  TLine *run_96_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
+
+  run_15_large_centroid_line->Draw();
+  run_26_large_centroid_line->Draw();
+  run_96_large_centroid_line->Draw();
+  run_15_small_centroid_line->Draw();
+  run_26_small_centroid_line->Draw();
+  run_96_small_centroid_line->Draw();
+
+
+  // run26_hist->Draw("SAME");
+  // run96_hist->Draw("SAME");
+
+
+
+  return;
+
 
   //Understanding uncertainties in centroid differences
   printf("Understanding uncertainties in centroid differences\n");

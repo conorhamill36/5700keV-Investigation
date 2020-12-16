@@ -13,6 +13,7 @@ void zoom(){
 
   //Booleans
   bool doublet_boolean = 1;
+  bool non_doublet_boolean = 0;
   bool batch_boolean = 1;
 
   if(batch_boolean){
@@ -30,7 +31,7 @@ void zoom(){
   double xbin, ybin, xmin, xmax, ymin, ymax, include_value;
   xbin=4096; ybin=100; xmin=0; xmax=4095; ymin=0; ymax=0;
 
-  double run_15_small_centroid, run_26_small_centroid, run_96_small_centroid, run_15_large_centroid, run_26_large_centroid, run_96_large_centroid;
+  double run_15_small_centroid, run_26_small_centroid, run_96_small_centroid, run_30_small_centroid, run_15_large_centroid, run_26_large_centroid, run_96_large_centroid, run_30_large_centroid;
 
   int start, end, run_file_counter, corresp_angle, file_flag, i;
   int run_no=0;
@@ -45,14 +46,13 @@ void zoom(){
   // std::TVectorD<int> corresp_angle_vector;
   // std::vector<double> centroid_diff_vector;
 
+  //Reading in histograms
   TFile *f = new TFile("all_spectra.root");
 
-
+  //Setting up histogram of correct size
   TH1F *h1 = new TH1F("h1","h1 title",xbin,xmin,xmax);
 
-  ifstream peaklocationfile;
 
-  //Getting histogram
 
   ofstream outputfile;
   outputfile.open("zoom_outputs.txt");
@@ -63,9 +63,14 @@ void zoom(){
   double doublet_large_peak_centroid, doublet_large_peak_height, doublet_large_peak_width, doublet_large_peak_counts;
   double doublet_small_peak_centroid, doublet_small_peak_height, doublet_small_peak_width, doublet_small_peak_counts;
 
+
   cout << "Conor 1" << endl;
+  ifstream peaklocationfile;
+  ifstream doublet_peaklocationfile;
   //Run loop begins
-  for(run_no = 0; run_no < 97; run_no++){
+  for(run_no = 0; run_no < 100; run_no++){
+
+    //Choice of peak location files
     //peaklocationfile.open("4+_4.901_peaklocations.txt");
     peaklocationfile.open("5.7_total_peaklocations.txt");
     // peaklocationfile.open("3+_6.125_peaklocations.txt");
@@ -73,12 +78,11 @@ void zoom(){
     // peaklocationfile.open("4+_5.474_peaklocations.txt");
 
 
-    cout << "Conor 2" << endl;
-
-    // printf("run number %d\n",run_no);
+    //Getting histogram for that run
     h1 = (TH1F*)f->Get(Form("run%d", run_no));
 
     file_flag=0;
+
     //Getting details from input file
     for (i = 0; i < total_runs ; i++){
       // printf("loop number %d\n",i);
@@ -95,12 +99,11 @@ void zoom(){
         sscanf(s_char,"%d %d %d %d %lf",&run_file_counter,&start,&end, &corresp_angle, &include_value); //picking out variables
       }
 
-      // cout << run_file_counter << run_no << endl;
       if(run_file_counter == run_no){
         cout << "location of " << start << " " << end << " found for run " << run_no << endl;
         cout << corresp_angle << " " << include_value << endl;
-      //   cout << "run " << run_no << " is a match, zooming in on it" << endl;
-      //   file_flag=1;
+        //   cout << "run " << run_no << " is a match, zooming in on it" << endl;
+        //   file_flag=1;
       if(include_value==1){
         TCanvas *c1 = new TCanvas();
         // h1->Rebin();
@@ -122,7 +125,7 @@ void zoom(){
 
         //Fitting single gaus to get initial centroid value
         double large_peak_centroid, large_peak_height, large_peak_width;
-        double centroid_diff, centroid_diff_uncert, centroid_diff_energy, centroid_diff_energy_uncert;
+        double centroid_diff, centroid_squared_diff, centroid_diff_uncert, centroid_diff_energy, centroid_diff_energy_uncert;
         TF1 *f1;
         f1 = new TF1("f1", "gaus", start, end);
         char pdf_name[20];
@@ -131,6 +134,9 @@ void zoom(){
         large_peak_height = f1->GetParameter(0);
         large_peak_centroid = f1->GetParameter(1);
         large_peak_width = f1->GetParameter(2);
+
+        //Now fitting with the single gaussian to get a centroid
+
 
 
 
@@ -155,87 +161,92 @@ void zoom(){
             f1_double->FixParameter(2, 6.0);
             f1_double->FixParameter(5, 6.0);
 
-            printf("%lf %lf %lf\n", large_peak_height, large_peak_centroid, large_peak_width);
-            double *double_params = f1_double->GetParameters();
-            cout << "double gaus params: " << endl;
-            for (int j = 0; j < 6; j++){
-              cout << double_params[j] << endl;
-            }
-            h1->Fit("f1_double", "BR0", "", start, end);
+          printf("%lf %lf %lf\n", large_peak_height, large_peak_centroid, large_peak_width);
+          double *double_params = f1_double->GetParameters();
+          cout << "double gaus params: " << endl;
+          for (int j = 0; j < 6; j++){
+            cout << double_params[j] << endl;
+          }
+          h1->Fit("f1_double", "BR0", "", start, end);
 
 
 
 
-            centroid_diff = f1_double->GetParameter(4) - f1_double->GetParameter(1);
-            centroid_diff_uncert = sqrt(f1_double->GetParError(4) * f1_double->GetParError(4) + f1_double->GetParError(1) * f1_double->GetParError(1));
+          centroid_diff = f1_double->GetParameter(4) - f1_double->GetParameter(1);
+          centroid_squared_diff = (f1_double->GetParameter(4) * f1_double->GetParameter(4)) - (f1_double->GetParameter(1) * f1_double->GetParameter(4));
+          centroid_diff_uncert = sqrt(f1_double->GetParError(4) * f1_double->GetParError(4) + f1_double->GetParError(1) * f1_double->GetParError(1));
 
 
-            doublet_large_peak_height = f1_double->GetParameter(0);
-            doublet_large_peak_centroid = f1_double->GetParameter(1);
-            doublet_large_peak_width = f1_double->GetParameter(2);
+          doublet_large_peak_height = f1_double->GetParameter(0);
+          doublet_large_peak_centroid = f1_double->GetParameter(1);
+          doublet_large_peak_width = f1_double->GetParameter(2);
 
-            doublet_small_peak_height = f1_double->GetParameter(3);
-            doublet_small_peak_centroid = f1_double->GetParameter(4);
-            doublet_small_peak_width = f1_double->GetParameter(5);
+          doublet_small_peak_height = f1_double->GetParameter(3);
+          doublet_small_peak_centroid = f1_double->GetParameter(4);
+          doublet_small_peak_width = f1_double->GetParameter(5);
 
-            h1->GetXaxis()->SetRangeUser(doublet_large_peak_centroid - 50, doublet_small_peak_centroid + 20);
-
-
-
-            if(run_no == 15){run_15_small_centroid = doublet_small_peak_centroid; run_15_large_centroid = doublet_large_peak_centroid;}
-            if(run_no == 26){run_26_small_centroid = doublet_small_peak_centroid; run_26_large_centroid = doublet_large_peak_centroid;}
-            if(run_no == 96){run_96_small_centroid = doublet_small_peak_centroid; run_96_large_centroid = doublet_large_peak_centroid;}
+          h1->GetXaxis()->SetRangeUser(doublet_large_peak_centroid - 50, doublet_small_peak_centroid + 20);
 
 
 
-            //Drawing on centroid lines
-            TLine *doublet_large_centroid_line = new TLine(doublet_large_peak_centroid, 0, doublet_large_peak_centroid, 1000);
-            TLine *doublet_small_centroid_line = new TLine(doublet_small_peak_centroid, 0, doublet_small_peak_centroid, 1000);
-            doublet_large_centroid_line->SetLineStyle(10); doublet_small_centroid_line->SetLineStyle(10);
-            doublet_large_centroid_line->Draw(); doublet_small_centroid_line->Draw();
+          if(run_no == 15){run_15_small_centroid = doublet_small_peak_centroid; run_15_large_centroid = doublet_large_peak_centroid;}
+          if(run_no == 26){run_26_small_centroid = doublet_small_peak_centroid; run_26_large_centroid = doublet_large_peak_centroid;}
+          if(run_no == 96){run_96_small_centroid = doublet_small_peak_centroid; run_96_large_centroid = doublet_large_peak_centroid;}
+          if(run_no == 30){run_30_small_centroid = doublet_small_peak_centroid; run_30_large_centroid = doublet_large_peak_centroid;}
+
+
+
+          //Drawing on centroid lines
+          TLine *doublet_large_centroid_line = new TLine(doublet_large_peak_centroid, 0, doublet_large_peak_centroid, 1000);
+          TLine *doublet_small_centroid_line = new TLine(doublet_small_peak_centroid, 0, doublet_small_peak_centroid, 1000);
+          doublet_large_centroid_line->SetLineStyle(10); doublet_small_centroid_line->SetLineStyle(10);
+          doublet_large_centroid_line->Draw(); doublet_small_centroid_line->Draw();
 
 
 
 
-            //For larger view of spectrum
-            // TPaveText *pt_double = new TPaveText(start + 100, f1_double->GetParameter(0) * 0.5, end + 100, f1_double->GetParameter(0));
+          //For larger view of spectrum
+          // TPaveText *pt_double = new TPaveText(start + 100, f1_double->GetParameter(0) * 0.5, end + 100, f1_double->GetParameter(0));
 
-            //For zooming in on doublet
-            TPaveText *pt_double = new TPaveText(doublet_large_peak_centroid - 45, f1_double->GetParameter(0) * 0.4, doublet_large_peak_centroid - 20, f1_double->GetParameter(0) * 0.7);
+          //For zooming in on doublet
+          TPaveText *pt_double = new TPaveText(doublet_large_peak_centroid - 45, f1_double->GetParameter(0) * 0.4, doublet_large_peak_centroid - 20, f1_double->GetParameter(0) * 0.7);
 
-            pt_double->AddText(corresp_angle_char);
+          pt_double->AddText(corresp_angle_char);
 
-            //Adding centroid difference on to histogram
-            // TLatex *centroid_diff_latex = new TLatex;
-            // centroid_diff_latex->SetTextSize(100000);
-            // centroid_diff_latex->SetTextAlign(12);
-            // centroid_diff_latex->DrawLatex(end, 500, "test latex");
-            // h1->Draw();
-            // c1->Draw();
+          //Adding centroid difference on to histogram
+          // TLatex *centroid_diff_latex = new TLatex;
+          // centroid_diff_latex->SetTextSize(100000);
+          // centroid_diff_latex->SetTextAlign(12);
+          // centroid_diff_latex->DrawLatex(end, 500, "test latex");
+          // h1->Draw();
+          // c1->Draw();
 
-            char centroid_diff_char[40];
-            sprintf(centroid_diff_char, "Centroid diff: \n%.1lf", centroid_diff);
-            printf("Centroid diff is %lf\n", (centroid_diff));
-            cout << centroid_diff_char << endl;
-            pt_double->AddText(centroid_diff_char);
-
-
-            // pt_double->Draw();
+          char centroid_diff_char[40];
+          sprintf(centroid_diff_char, "Centroid diff: \n%.1lf", centroid_diff);
+          printf("Centroid diff is %lf\n", (centroid_diff));
+          cout << centroid_diff_char << endl;
+          pt_double->AddText(centroid_diff_char);
 
 
+          // pt_double->Draw();
 
-            sprintf(pdf_name, "5.7_peak_fits/run%i_double_gaus_5.7.pdf", run_no);
-            c1->SaveAs(pdf_name);
 
-            corresp_angle_vector.push_back(corresp_angle);
-            centroid_vector.push_back(large_peak_centroid);
-            centroid_diff_vector.push_back(centroid_diff);
-            corresp_angle_vector.push_back(double(corresp_angle));
 
-            cout << corresp_angle_vector[0] << " " << centroid_diff_vector[0] << endl;
-            outputfile << corresp_angle << " " << large_peak_centroid << " " << centroid_diff << " ";
+          sprintf(pdf_name, "5.7_peak_fits/run%i_double_gaus_5.7.pdf", run_no);
+          c1->SaveAs(pdf_name);
+
+          corresp_angle_vector.push_back(corresp_angle);
+          centroid_vector.push_back(large_peak_centroid);
+          centroid_diff_vector.push_back(centroid_diff);
+          corresp_angle_vector.push_back(double(corresp_angle));
+          cout << corresp_angle_vector[0] << " " << centroid_diff_vector[0] << endl;
+          outputfile << corresp_angle << " " << doublet_large_peak_centroid << " " << centroid_diff << " ";
         } //End of doublet boolean
 
+        //Outputting to file if fitting single peak
+        if(doublet_boolean == 0){
+          outputfile << corresp_angle << " " << large_peak_centroid << endl;
+        }
 
         //Converting large peak centroid to excitation energy
 
@@ -281,14 +292,10 @@ void zoom(){
           channel_to_ex_fit_parameter_b * doublet_small_peak_centroid +
           channel_to_ex_fit_parameter_c * doublet_small_peak_centroid * doublet_small_peak_centroid;
 
-          centroid_diff_energy = centroid_diff * -channel_to_ex_fit_parameter_b;
+          centroid_diff_energy = centroid_diff * -channel_to_ex_fit_parameter_b + centroid_squared_diff * channel_to_ex_fit_parameter_c;
           // centroid_diff_energy_uncert = centroid_diff * channel_to_ex_fit_parameter_b_uncert;
 
-          //Realtive uncertainty in energy difference is relative uncertainty in channel difference and calibration parameter added in quadrature
-          centroid_diff_uncert = 9.19;
-
-
-
+          //Relative uncertainty in energy difference is relative uncertainty in channel difference and calibration parameter added in quadrature
 
           doublet_large_peak_counts = doublet_large_peak_height * doublet_large_peak_width * sqrt(2.0 * 3.141459);
           doublet_small_peak_counts = doublet_small_peak_height * doublet_small_peak_width * sqrt(2.0 * 3.141459);
@@ -331,85 +338,152 @@ void zoom(){
   exc_calib_output_file.close();
 
 
-  //Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak
-  printf("Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak");
+  if(doublet_boolean){
+    //Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak
+    printf("Section to take the 5.7 MeV peaks from runs 15, 26 and 96 and overlay them on each other, lined up by the centroid in the small peak");
 
 
-  printf("Small centroids:\n%lf\t%lf\t%lf\n", run_15_small_centroid, run_26_small_centroid, run_96_small_centroid);
-  printf("Large centroids:\n%lf\t%lf\t%lf\n", run_15_large_centroid, run_26_large_centroid, run_96_large_centroid);
+    printf("Small centroids:\n%lf\t%lf\t%lf\t%lf\n", run_15_small_centroid, run_26_small_centroid, run_96_small_centroid, run_30_small_centroid);
+    printf("Large centroids:\n%lf\t%lf\t%lf\t%lf\n", run_15_large_centroid, run_26_large_centroid, run_96_large_centroid, run_30_large_centroid);
 
-  //Extracting histograms
-  printf("Extracting histograms\n");
+    //Extracting histograms
+    printf("Extracting histograms\n");
 
-  TH1F *run15_hist = new TH1F("run15_hist","run15_hist title",xbin,xmin,xmax);
-  TH1F *run26_hist = new TH1F("run26_hist","run26_hist title",xbin,xmin,xmax);
-  TH1F *run96_hist = new TH1F("run96_hist","run96_hist title",xbin,xmin,xmax);
-  TH1F *run26_hist_shifted = new TH1F("run26_hist_shifted","run26_hist_shifted title",xbin,xmin,xmax);
-  TH1F *run96_hist_shifted = new TH1F("run96_hist_shifted","run96_hist_shifted title",xbin,xmin,xmax);
+    TH1F *run15_hist = new TH1F("run15_hist","run15_hist title",xbin,xmin,xmax);
+    TH1F *run26_hist = new TH1F("run26_hist","run26_hist title",xbin,xmin,xmax);
+    TH1F *run96_hist = new TH1F("run96_hist","run96_hist title",xbin,xmin,xmax);
+    TH1F *run30_hist = new TH1F("run30_hist","run30_hist title",xbin,xmin,xmax);
 
-  run15_hist = (TH1F*)f->Get("run15");
-  run26_hist = (TH1F*)f->Get("run26");
-  run96_hist = (TH1F*)f->Get("run96");
+    TH1F *run26_hist_shifted = new TH1F("run26_hist_shifted","run26_hist_shifted title",xbin,xmin,xmax);
+    TH1F *run96_hist_shifted = new TH1F("run96_hist_shifted","run96_hist_shifted title",xbin,xmin,xmax);
+    TH1F *run30_hist_shifted = new TH1F("run30_hist_shifted","run30_hist_shifted title",xbin,xmin,xmax);
 
-  double run26_shift, run96_shift;
+    run15_hist = (TH1F*)f->Get("run15");
+    run26_hist = (TH1F*)f->Get("run26");
+    run96_hist = (TH1F*)f->Get("run96");
+    run30_hist = (TH1F*)f->Get("run30");
 
-  run26_shift = run_15_small_centroid - run_26_small_centroid;
-  run96_shift = run_15_small_centroid - run_96_small_centroid;
+    double run26_shift, run96_shift, run30_shift;
 
-  printf("run26 shift: %lf\n", run26_shift);
-  printf("run96 shift: %lf\n", run96_shift);
+    //For when showing 5.746 MeV peak
+    // double single_array[4] = {2279.47, 2157.64, 2061.76, 2263.39};
+    // run_15_large_centroid = single_array[0];
+    // run_26_large_centroid = single_array[1];
+    // run_96_large_centroid = single_array[2];
+    // run_30_large_centroid = single_array[3];
 
-  for(int i = 0; i < xbin; i++){
-    cout << run26_hist->GetBinContent(i) << endl;
-    run26_hist_shifted->SetBinContent(i, run26_hist->GetBinContent(i - run26_shift));
+
+
+    //For when showing doublet
+    run26_shift = run_15_small_centroid - run_26_small_centroid;
+    run96_shift = run_15_small_centroid - run_96_small_centroid;
+    run30_shift = run_15_small_centroid - run_30_small_centroid;
+
+    printf("run26 shift: %lf\n", run26_shift);
+    printf("run96 shift: %lf\n", run96_shift);
+    printf("run30 shift: %lf\n", run30_shift);
+
+
+    for(int i = 0; i < xbin; i++){
+      // cout << run26_hist->GetBinContent(i) << endl;
+      run26_hist_shifted->SetBinContent(i, run26_hist->GetBinContent(i - run26_shift + 1));
+    }
+
+    //Scaling to help match heights
+    double run96_scale, run30_scale;
+    run96_scale = 1.72;
+    run30_scale = 1.0;
+
+    for(int i = 0; i < xbin; i++){
+      // cout << run96_hist->GetBinContent(i) << endl;
+      run96_hist_shifted->SetBinContent(i, run96_scale*run96_hist->GetBinContent(i - run96_shift + 1));
+    }
+
+    for(int i = 0; i < xbin; i++){
+      // cout << run30_hist->GetBinContent(i) << endl;
+      run30_hist_shifted->SetBinContent(i, run30_scale*run30_hist->GetBinContent(i - run30_shift));
+    }
+
+
+
+    //Setting widths
+    double line_width = 2;
+    run15_hist->SetLineWidth(line_width);
+    run26_hist->SetLineWidth(line_width);
+    run96_hist->SetLineWidth(line_width);
+    run30_hist->SetLineWidth(line_width);
+    run26_hist_shifted->SetLineWidth(line_width);
+    run96_hist_shifted->SetLineWidth(line_width);
+    run30_hist_shifted->SetLineWidth(line_width);
+
+    // run96_hist_shifted->Scale(1.72);
+
+    //Adding colors
+    run15_hist->SetLineColorAlpha(2, 0.6);
+    run26_hist->SetLineColor(1);
+    run96_hist->SetLineColor(4);
+    run30_hist->SetLineColor(2);
+    run26_hist_shifted->SetLineColor(1);
+    run96_hist_shifted->SetLineColorAlpha(4, 0.6);
+    run30_hist_shifted->SetLineColorAlpha(2, 0.6);
+
+    gROOT->SetBatch(kFALSE);
+
+    //New Canvas to draw on
+    // TCanvas *c1 = new TCanvas("c1","c1",800,1000);
+    TCanvas *c2 = new TCanvas("c2","c2",800,1000);
+    run15_hist->Draw();
+    run26_hist_shifted->Draw("SAME");
+    // run96_hist_shifted->Draw("SAME");
+    // run30_hist_shifted->Draw("SAME");
+
+    //For when showing 5.746 MeV peak
+    // run15_hist->GetXaxis()->SetRangeUser(2250, 2320);
+
+
+    //For when showing the doublet
+    run15_hist->GetXaxis()->SetRangeUser(2040, 2110);
+
+    //Drawing on centroid lines
+    TLine *run_15_large_centroid_line = new TLine(run_15_large_centroid,0,run_15_large_centroid,1000);
+    TLine *run_26_large_centroid_line = new TLine(run_26_large_centroid+run26_shift,0,run_26_large_centroid+run26_shift,1000);
+    TLine *run_96_large_centroid_line = new TLine(run_96_large_centroid+run96_shift,0,run_96_large_centroid+run96_shift,1000);
+    TLine *run_30_large_centroid_line = new TLine(run_30_large_centroid+run30_shift,0,run_30_large_centroid+run30_shift,1000);
+
+    TLine *run_15_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
+    TLine *run_26_small_centroid_line = new TLine(run_26_small_centroid+run26_shift,0,run_26_small_centroid+run26_shift,1000);
+    TLine *run_96_small_centroid_line = new TLine(run_96_small_centroid+run96_shift,0,run_96_small_centroid+run96_shift,1000);
+    TLine *run_30_small_centroid_line = new TLine(run_30_large_centroid+run30_shift,0,run_30_large_centroid+run30_shift,1000);
+
+    //Drawing on 5.746 MeV peak lines
+
+
+    run_15_large_centroid_line->SetLineStyle(10);
+    run_26_large_centroid_line->SetLineStyle(10);
+    run_96_large_centroid_line->SetLineStyle(10);
+    run_30_large_centroid_line->SetLineStyle(10);
+
+    run_15_small_centroid_line->SetLineStyle(10);
+    run_26_small_centroid_line->SetLineStyle(10);
+    run_96_small_centroid_line->SetLineStyle(10);
+    run_30_small_centroid_line->SetLineStyle(10);
+
+
+
+
+
+
+    // run_15_large_centroid_line->Draw();
+    // run_26_large_centroid_line->Draw();
+    // run_96_large_centroid_line->Draw();
+    // run_30_large_centroid_line->Draw();
+
+    // run_15_small_centroid_line->Draw();
+    // run_26_small_centroid_line->Draw();
+    // run_96_small_centroid_line->Draw();
+    // run_30_small_centroid_line->Draw();
+    c2->SaveAs("doublets_overlaid_angle_ROOT.pdf");
   }
-
-  //Scaling to help match heights
-  double run96_scale;
-  run96_scale = 1.72;
-
-  for(int i = 0; i < xbin; i++){
-    cout << run96_hist->GetBinContent(i) << endl;
-    run96_hist_shifted->SetBinContent(i, run96_scale*run96_hist->GetBinContent(i - run96_shift));
-  }
-
-  //Adding colors
-  run15_hist->SetLineColor(2);
-  run26_hist->SetLineColor(1);
-  run96_hist->SetLineColor(3);
-  run26_hist_shifted->SetLineColor(1);
-  run96_hist_shifted->SetLineColor(3);
-
-  // run96_hist_shifted->Scale(1.72);
-
-  gROOT->SetBatch(kFALSE);
-
-  //New Canvas to draw on
-  // TCanvas *c1 = new TCanvas("c1","c1",800,1000);
-  TCanvas *c2 = new TCanvas("c2","c2",800,1000);
-  run15_hist->Draw();
-  run26_hist_shifted->Draw("SAME");
-  run96_hist_shifted->Draw("SAME");
-  run15_hist->GetXaxis()->SetRangeUser(2040, 2110);
-
-  //Drawing on centroid lines
-  TLine *run_15_large_centroid_line = new TLine(run_15_large_centroid,0,run_15_large_centroid,1000);
-  TLine *run_26_large_centroid_line = new TLine(run_26_large_centroid+run26_shift,0,run_26_large_centroid+run26_shift,1000);
-  TLine *run_96_large_centroid_line = new TLine(run_96_large_centroid+run96_shift,0,run_96_large_centroid+run96_shift,1000);
-  TLine *run_15_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
-  TLine *run_26_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
-  TLine *run_96_small_centroid_line = new TLine(run_15_small_centroid,0,run_15_small_centroid,1000);
-
-  run_15_large_centroid_line->Draw();
-  run_26_large_centroid_line->Draw();
-  run_96_large_centroid_line->Draw();
-  run_15_small_centroid_line->Draw();
-  run_26_small_centroid_line->Draw();
-  run_96_small_centroid_line->Draw();
-
-
-  // run26_hist->Draw("SAME");
-  // run96_hist->Draw("SAME");
 
 
 
@@ -432,8 +506,8 @@ void zoom(){
       printf("%lf\t%lf\n", start_values_array[i], end_values_array[j]);
       TF1 *f_double_gaus = new TF1("f_double_gaus", "gaus(0)+gaus(3)", start_values_array[i], end_values_array[j]);
       f_double_gaus->SetParameters(200, 2070, 8, 0.2 * 200, 2070 + 20, 8);
-      f_double_gaus->FixParameter(2, 5.5);
-      f_double_gaus->FixParameter(5, 5.5);
+      f_double_gaus->FixParameter(2, 6.0);
+      f_double_gaus->FixParameter(5, 6.0);
       h1->Fit("f_double_gaus", "BR", "", start_values_array[i], end_values_array[j]);
       centroid_diff = f_double_gaus->GetParameter(4) - f_double_gaus->GetParameter(1);
       printf("%lf\n", centroid_diff);
